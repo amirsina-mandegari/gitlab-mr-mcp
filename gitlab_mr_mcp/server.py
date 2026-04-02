@@ -48,10 +48,13 @@ from gitlab_mr_mcp.tools import (
 
 PROJECT_ID_SCHEMA = {
     "type": "string",
-    "description": (
-        "GitLab project ID or path (e.g., '12345' or 'group/project'). "
-        "IMPORTANT: If unknown, first call search_projects or list_my_projects to find it."
-    ),
+    "description": "Project ID or 'group/project'. Unknown? Call search_projects first.",
+}
+
+MR_IID = {
+    "type": "integer",
+    "minimum": 1,
+    "description": "MR internal ID",
 }
 
 
@@ -89,30 +92,14 @@ class GitLabMCPServer:
                 Tool(
                     name="search_projects",
                     title="Search Projects",
-                    description=(
-                        "PRIMARY tool to find projects. Use when user mentions ANY project name. "
-                        "ALWAYS prefer this over list_my_projects."
-                    ),
+                    description="Find projects by name. Use first when project is unknown.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "search": {
-                                "type": "string",
-                                "description": "Project name or partial name (e.g., 'backend', 'api', 'frontend')",
-                            },
-                            "membership": {
-                                "type": "boolean",
-                                "default": True,
-                                "description": "Only show projects user is a member of",
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 10,
-                                "minimum": 1,
-                                "maximum": 100,
-                                "description": "Maximum number of results",
-                            },
+                            "search": {"type": "string", "description": "Project name or partial name"},
+                            "membership": {"type": "boolean", "default": True},
+                            "limit": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
                         },
                         "additionalProperties": False,
                     },
@@ -120,26 +107,13 @@ class GitLabMCPServer:
                 Tool(
                     name="list_my_projects",
                     title="List All Projects",
-                    description=(
-                        "List ALL projects (slow). Only use when user asks 'what projects do I have' "
-                        "or needs to browse without knowing any name."
-                    ),
+                    description="List all accessible projects. Slow — use search_projects if you know the name.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "owned": {
-                                "type": "boolean",
-                                "default": False,
-                                "description": "Only show projects owned by the user",
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 20,
-                                "minimum": 1,
-                                "maximum": 100,
-                                "description": "Maximum number of results",
-                            },
+                            "owned": {"type": "boolean", "default": False},
+                            "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                         },
                         "additionalProperties": False,
                     },
@@ -147,7 +121,7 @@ class GitLabMCPServer:
                 Tool(
                     name="list_merge_requests",
                     title="List Merge Requests",
-                    description="List merge requests for a GitLab project with optional filters.",
+                    description="List MRs with optional filters.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
@@ -157,19 +131,9 @@ class GitLabMCPServer:
                                 "type": "string",
                                 "enum": ["opened", "closed", "merged", "all"],
                                 "default": "opened",
-                                "description": "Filter by merge request state",
                             },
-                            "target_branch": {
-                                "type": "string",
-                                "description": "Filter by target branch (optional)",
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 10,
-                                "minimum": 1,
-                                "maximum": 100,
-                                "description": "Maximum number of results",
-                            },
+                            "target_branch": {"type": "string"},
+                            "limit": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
                         },
                         "additionalProperties": False,
                     },
@@ -177,17 +141,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_merge_request_reviews",
                     title="Get MR Reviews",
-                    description="Get reviews and discussions for a merge request. Returns discussion IDs for replying.",
+                    description="Get MR reviews and discussions. Returns discussion IDs.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -196,17 +156,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_merge_request_details",
                     title="Get MR Details",
-                    description="Get MR details including status, approvals, and merge readiness.",
+                    description="Get MR status, approvals, and merge readiness.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -215,17 +171,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_merge_request_pipeline",
                     title="Get MR Pipeline",
-                    description="Get pipeline data with all jobs and statuses. Returns job IDs for get_job_log.",
+                    description="Get pipeline jobs and statuses. Returns job IDs for get_job_log.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -234,17 +186,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_merge_request_test_report",
                     title="Get MR Test Report",
-                    description="Get test report with failures, error messages, and stack traces.",
+                    description="Get test failures with error messages and stack traces.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -253,17 +201,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_pipeline_test_summary",
                     title="Get Test Summary",
-                    description="Get test summary with pass/fail counts. Faster than full test report.",
+                    description="Get test pass/fail counts. Faster than full test report.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -272,17 +216,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_job_log",
                     title="Get Job Log",
-                    description="Get trace/log output for a pipeline job. Use for debugging CI/CD failures.",
+                    description="Get CI job log. Use job IDs from get_merge_request_pipeline.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "job_id": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "ID of the pipeline job (from get_merge_request_pipeline)",
-                            },
+                            "job_id": {"type": "integer", "minimum": 1, "description": "Job ID"},
                         },
                         "required": ["job_id"],
                         "additionalProperties": False,
@@ -291,16 +231,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_branch_merge_requests",
                     title="Get Branch MRs",
-                    description="Get all merge requests for a specific branch.",
+                    description="Get MRs for a branch.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "branch_name": {
-                                "type": "string",
-                                "description": "Name of the branch",
-                            },
+                            "branch_name": {"type": "string"},
                         },
                         "required": ["branch_name"],
                         "additionalProperties": False,
@@ -309,25 +246,15 @@ class GitLabMCPServer:
                 Tool(
                     name="reply_to_review_comment",
                     title="Reply to Discussion",
-                    description="Reply to a discussion thread in a merge request review.",
+                    description="Reply to a discussion thread.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
-                            "discussion_id": {
-                                "type": "string",
-                                "description": "ID of the discussion thread to reply to",
-                            },
-                            "body": {
-                                "type": "string",
-                                "description": "Content of the reply comment",
-                            },
+                            "merge_request_iid": MR_IID,
+                            "discussion_id": {"type": "string"},
+                            "body": {"type": "string"},
                         },
                         "required": ["merge_request_iid", "discussion_id", "body"],
                         "additionalProperties": False,
@@ -336,21 +263,14 @@ class GitLabMCPServer:
                 Tool(
                     name="create_review_comment",
                     title="Create Discussion",
-                    description="Create a new discussion thread in a merge request.",
+                    description="Create a new discussion thread on an MR.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
-                            "body": {
-                                "type": "string",
-                                "description": "Content of the new discussion comment",
-                            },
+                            "merge_request_iid": MR_IID,
+                            "body": {"type": "string"},
                         },
                         "required": ["merge_request_iid", "body"],
                         "additionalProperties": False,
@@ -359,26 +279,15 @@ class GitLabMCPServer:
                 Tool(
                     name="resolve_review_discussion",
                     title="Resolve Discussion",
-                    description="Resolve or unresolve a discussion thread in a merge request.",
+                    description="Resolve or unresolve a discussion thread.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
-                            "discussion_id": {
-                                "type": "string",
-                                "description": "ID of the discussion thread to resolve/unresolve",
-                            },
-                            "resolved": {
-                                "type": "boolean",
-                                "default": True,
-                                "description": "Whether to resolve (true) or unresolve (false)",
-                            },
+                            "merge_request_iid": MR_IID,
+                            "discussion_id": {"type": "string"},
+                            "resolved": {"type": "boolean", "default": True},
                         },
                         "required": ["merge_request_iid", "discussion_id"],
                         "additionalProperties": False,
@@ -387,17 +296,13 @@ class GitLabMCPServer:
                 Tool(
                     name="get_commit_discussions",
                     title="Get Commit Discussions",
-                    description="Get discussions and comments on commits within a merge request.",
+                    description="Get discussions on commits within an MR.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -406,87 +311,49 @@ class GitLabMCPServer:
                 Tool(
                     name="list_project_members",
                     title="List Project Members",
-                    description="List project members with usernames and access levels.",
+                    description="List project members and access levels.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
-                        "properties": {
-                            "project_id": PROJECT_ID_SCHEMA,
-                        },
+                        "properties": {"project_id": PROJECT_ID_SCHEMA},
                         "additionalProperties": False,
                     },
                 ),
                 Tool(
                     name="list_project_labels",
                     title="List Project Labels",
-                    description="List all available labels in the project including inherited group labels.",
+                    description="List project labels including inherited ones.",
                     annotations=read_only,
                     inputSchema={
                         "type": "object",
-                        "properties": {
-                            "project_id": PROJECT_ID_SCHEMA,
-                        },
+                        "properties": {"project_id": PROJECT_ID_SCHEMA},
                         "additionalProperties": False,
                     },
                 ),
                 Tool(
                     name="create_merge_request",
                     title="Create Merge Request",
-                    description="Create a new merge request. Accepts usernames for assignees and reviewers.",
+                    description="Create an MR. Accepts usernames for assignees/reviewers.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "source_branch": {
-                                "type": "string",
-                                "description": "The source branch name",
-                            },
-                            "target_branch": {
-                                "type": "string",
-                                "description": "The target branch name (e.g., 'main', 'develop')",
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "Title of the merge request",
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Description/body of the merge request (optional)",
-                            },
-                            "draft": {
-                                "type": "boolean",
-                                "default": False,
-                                "description": "Create as draft/WIP merge request",
-                            },
-                            "squash": {
-                                "type": "boolean",
-                                "description": "Squash commits when merging (optional)",
-                            },
-                            "remove_source_branch": {
-                                "type": "boolean",
-                                "description": "Remove source branch after merge (optional)",
-                            },
-                            "labels": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Labels to apply (optional)",
-                            },
-                            "create_missing_labels": {
-                                "type": "boolean",
-                                "default": False,
-                                "description": "Create labels if they don't exist (default: false)",
-                            },
+                            "source_branch": {"type": "string"},
+                            "target_branch": {"type": "string"},
+                            "title": {"type": "string"},
+                            "description": {"type": "string"},
+                            "draft": {"type": "boolean", "default": False},
+                            "squash": {"type": "boolean"},
+                            "remove_source_branch": {"type": "boolean"},
+                            "labels": {"type": "array", "items": {"type": "string"}},
+                            "create_missing_labels": {"type": "boolean", "default": False},
                             "assignees": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Usernames to assign (e.g., ['john.doe', 'jane.smith'])",
+                                "description": "Usernames e.g. ['john.doe']",
                             },
-                            "reviewers": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Usernames to request review from",
-                            },
+                            "reviewers": {"type": "array", "items": {"type": "string"}},
                         },
                         "required": ["source_branch", "target_branch", "title"],
                         "additionalProperties": False,
@@ -495,55 +362,33 @@ class GitLabMCPServer:
                 Tool(
                     name="update_merge_request",
                     title="Update Merge Request",
-                    description="Update a merge request. Pass empty arrays to clear assignees/reviewers/labels.",
+                    description="Update an MR. Pass empty arrays to clear assignees/reviewers/labels.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request to update",
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "New title (optional)",
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "New description (optional)",
-                            },
-                            "target_branch": {
-                                "type": "string",
-                                "description": "New target branch (optional)",
-                            },
-                            "draft": {
-                                "type": "boolean",
-                                "description": "Set draft status (true=draft, false=ready)",
-                            },
-                            "squash": {
-                                "type": "boolean",
-                                "description": "Squash commits when merging",
-                            },
-                            "remove_source_branch": {
-                                "type": "boolean",
-                                "description": "Remove source branch after merge",
-                            },
+                            "merge_request_iid": MR_IID,
+                            "title": {"type": "string"},
+                            "description": {"type": "string"},
+                            "target_branch": {"type": "string"},
+                            "draft": {"type": "boolean"},
+                            "squash": {"type": "boolean"},
+                            "remove_source_branch": {"type": "boolean"},
                             "labels": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Labels to set (replaces existing). Empty array clears.",
+                                "description": "Replaces existing. Empty array clears.",
                             },
                             "assignees": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Usernames to assign (replaces existing). Empty array clears.",
+                                "description": "Replaces existing. Empty array clears.",
                             },
                             "reviewers": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Usernames for review (replaces existing). Empty array clears.",
+                                "description": "Replaces existing. Empty array clears.",
                             },
                         },
                         "required": ["merge_request_iid"],
@@ -553,44 +398,22 @@ class GitLabMCPServer:
                 Tool(
                     name="merge_merge_request",
                     title="Merge MR",
-                    description="Merge a merge request. Check merge status with get_merge_request_details first.",
+                    description="Merge an MR. Check status with get_merge_request_details first.",
                     annotations=destructive,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request to merge",
-                            },
-                            "squash": {
-                                "type": "boolean",
-                                "default": False,
-                                "description": "Squash commits into a single commit",
-                            },
-                            "should_remove_source_branch": {
-                                "type": "boolean",
-                                "default": False,
-                                "description": "Remove source branch after merge",
-                            },
-                            "merge_when_pipeline_succeeds": {
-                                "type": "boolean",
-                                "default": False,
-                                "description": "Merge when pipeline succeeds (auto-merge)",
-                            },
+                            "merge_request_iid": MR_IID,
+                            "squash": {"type": "boolean", "default": False},
+                            "should_remove_source_branch": {"type": "boolean", "default": False},
+                            "merge_when_pipeline_succeeds": {"type": "boolean", "default": False},
                             "sha": {
                                 "type": "string",
-                                "description": "HEAD SHA to ensure no new commits (safety check)",
+                                "description": "HEAD SHA for safety check (ensures no new commits)",
                             },
-                            "merge_commit_message": {
-                                "type": "string",
-                                "description": "Custom merge commit message (optional)",
-                            },
-                            "squash_commit_message": {
-                                "type": "string",
-                                "description": "Custom squash commit message (optional)",
-                            },
+                            "merge_commit_message": {"type": "string"},
+                            "squash_commit_message": {"type": "string"},
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
@@ -599,20 +422,16 @@ class GitLabMCPServer:
                 Tool(
                     name="approve_merge_request",
                     title="Approve MR",
-                    description="Approve a merge request. Note: You cannot approve your own MRs.",
+                    description="Approve an MR. Cannot approve your own.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request to approve",
-                            },
+                            "merge_request_iid": MR_IID,
                             "sha": {
                                 "type": "string",
-                                "description": "HEAD SHA to ensure approving the right version (optional)",
+                                "description": "HEAD SHA to ensure approving the right version",
                             },
                         },
                         "required": ["merge_request_iid"],
@@ -622,17 +441,13 @@ class GitLabMCPServer:
                 Tool(
                     name="unapprove_merge_request",
                     title="Unapprove MR",
-                    description="Revoke your approval from a merge request.",
+                    description="Revoke approval from an MR.",
                     annotations=write_op,
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "project_id": PROJECT_ID_SCHEMA,
-                            "merge_request_iid": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "Internal ID of the merge request to unapprove",
-                            },
+                            "merge_request_iid": MR_IID,
                         },
                         "required": ["merge_request_iid"],
                         "additionalProperties": False,
